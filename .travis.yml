@@ -1,0 +1,94 @@
+# Copyright (c) 2016 Uber Technologies, Inc.
+
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
+
+dist: trusty
+sudo: required
+
+language: go
+directories:
+    - $HOME/.glide/cache
+go:
+  - 1.8
+  - 1.9
+
+env:
+  global:
+    - COMMIT=${TRAVIS_COMMIT::8}
+    - secure: PxV+ljvtJLjWP3ekkvBPoNhPeU4yGr1Ca3vjqUmmFRsVmbk3OnZ27HTQF00mYlkF9T1m8iHWGIlWF5LwxFWozjqnqoJTqOkBQvH4sUXTqkAVlDFz6YdzsMmwY83qONF8BYVRQKb0dTaT8gqmHjTbJOyF2VkFbweq4lwhFfC4muER4QBk3uWUCHN9/Ra/amWMBXfB64EXBhGQfgwrRhrJQ2kEGOwOul9Kk815sWGC50DSgrTnhKWwAqQoOqqxRImUFlYOHPiVDgU+s+i/qfExT7gFv/zGLUnzx+qI3zJonZwL4kmRDdebpuis3DrNIbrR4is68kCF5+Y4SY7fRZFgjgoEGKEWSd7dwImk4sGQ9iAC/63VaD4rq2Mlu7wmqhfFsmITk/kL5hPBNNmbvYxiYEgKkFQaO0O8IwMDTtHVc+nXOXEzFUt+Gm1uoKGkujV1G2QUcmMgN2WqbX3jEtx8HDPg6edrvYsB3gQ95dZBX95qOz81iQ7TTnt5I3zAAWVs5bYNk198pnGfvRwxMCPI9nBKMac2xNxGpRu2kqcLJxg47GZfmnEouGizthTDw/vhr9WvylFitreeo9js5v6+nNNIXE+6n3BtsC0wPPQJF5P1+Uk89VvzA9Br2ns5kRqa+YCzDXAjtfKG9z7JY1YXH+gNUVEIjKGEdux7Py9truA=
+    - secure: aniIO/lIDp9cFiqj5Ph+/NqAqgD6cW5SamnF+AvruJEHPuFxR+AlyjItdWEeeq7LcB82CVu1buUxeqlTmiTgCh1t3gr5r3W5INKHm4SfuJ/TPIXd61G6R+mqdVCfypVhtMmeFCvO+KcF8nFcEaWVlBGmXYjj2FY9vsZKbSaBLkEq9S6tPjkZTL7wOTSQQw4mHZ84McgKWZ2KpXr19BNvZUTnTikjQo5mvdanrZ9ylQpnRW3ysA38JbBJGu9buSoArGC8Mb99oOIPmGbKK7/3X+vncKmfmgqvNGvnr7cqItpn6mScr2ot5ABmnO4C9pM6C5nGYq2vyTMnq4f4KBu0iz2/EA/RpwVcAmpuxJtBqYio3No2usLhqCBIX4i2ZhGTsthS2FmqOhYIoYvkVoFzW3wZLTZUXu2iSTXFX/IpxoJRTsgzmHhjfriFXzOu0NfXybxAVYUzZkwyfx7jw8/fxAnU7dC3HnZg0zXC7uq4p7UJmwORbWgx/XDF4J8ywI2oOvpUBYsMIl/qKqpj+yaUtDWvUL8rIBxreSrH7wRBPrXO5TpVtFste+hG0eqQUaxRhBepAUWmr5EZYYaCKJANQMDqNHO4kIGpfedZQOngRdS1Cm8gdpRyaliu87ZygU2lvDd0uNX071i/eqj4Olx/B7SKrk29nY7IyLlMa0Gn4Pc=
+
+addons:
+  apt:
+    packages:
+    - python
+    - libsnappy-dev
+    - zlib1g-dev
+    - libbz2-dev
+    - libgflags-dev
+
+before_install:
+  - sudo apt-get remove gcc -y
+  - pip install --user ccm
+  - pip install --user cqlsh==5.0.3
+  - sudo apt-get install gcc g++ -y
+  - wget https://archive.apache.org/dist/kafka/0.10.0.1/kafka_2.11-0.10.0.1.tgz -O kafka.tgz
+  - mkdir -p kafka && tar xzf kafka.tgz -C kafka --strip-components 1
+  - nohup bash -c "cd kafka && bin/zookeeper-server-start.sh config/zookeeper.properties &"
+  - nohup bash -c "cd kafka && bin/kafka-server-start.sh config/server.properties &"
+  - ulimit -n
+
+install:
+  - go get -u github.com/Masterminds/glide
+  - go get github.com/axw/gocov/gocov
+  - go get github.com/mattn/goveralls
+  - go get golang.org/x/tools/cmd/cover
+  - go get github.com/golang/lint/golint
+  - ccm create test -v 2.2.8 -n 1 -s --pwd-auth
+  - sudo ln -sf /home/travis/.local/bin/cqlsh /usr/local/bin/cqlsh
+  - wget https://github.com/uber/cherami-server/releases/download/rocksdb-5.0.2-trusty/librocksdb.so.5.0.2
+  - ln -s librocksdb.so.5.0.2 librocksdb.so.5.0
+  - ln -s librocksdb.so.5.0.2 librocksdb.so.5
+  - ln -s librocksdb.so.5.0.2 librocksdb.so
+  - export CGO_CFLAGS="$CGO_FLAGS -I`pwd`/vendor/github.com/cockroachdb/c-rocksdb/internal/include"
+  - export CGO_LDFLAGS="$CGO_LDFLAGS -L`pwd` -lrocksdb"
+  - export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:`pwd`"
+
+script:
+  - EMBEDROCKSDB=0 make -j2 cover_ci
+
+after_success:
+  - export BRANCH=$(if [ "$TRAVIS_PULL_REQUEST" == "false" ]; then echo $TRAVIS_BRANCH; else echo $TRAVIS_PULL_REQUEST_BRANCH; fi)
+  - 'if [ "$BRANCH" == "master" ]; then
+        docker login -u $DOCKER_USER -p $DOCKER_PASS;
+        export TAG=latest;
+        
+        export REPO=ubercherami/cherami-server-standalone;
+        echo "Building docker image for TRAVIS_BRANCH=$TRAVIS_BRANCH, REPO=$REPO, PR=$PR, BRANCH=$BRANCH, TAG=$TAG";
+        time docker build -f docker/standalone/Dockerfile -t $REPO:$COMMIT -t $REPO:$TAG -t $REPO:travis-$TRAVIS_BUILD_NUMBER docker/standalone/ &
+
+        export REPO=ubercherami/cherami-server;
+        echo "Building docker image for TRAVIS_BRANCH=$TRAVIS_BRANCH, REPO=$REPO, PR=$PR, BRANCH=$BRANCH, TAG=$TAG";
+        time travis_wait 20 docker build -f docker/server/Dockerfile -t $REPO:$COMMIT -t $REPO:$TAG -t $REPO:travis-$TRAVIS_BUILD_NUMBER docker/server/;
+        wait;
+
+        time docker push ubercherami/cherami-server-standalone &
+        time docker push ubercherami/cherami-server;
+        wait;
+    fi'
